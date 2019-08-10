@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -170,9 +170,9 @@ namespace ExtendedZones
                                 bool nosuicide = bool.Parse(args[5]);
                                 bool blockBuilding = bool.Parse(args[6]);
                                 bool godmode = bool.Parse(args[7]);
-                                Zones.Add(CreateUniqueID(), new ZoneProps(name, player.Location.ToString(), radius, radiation, radA, nosuicide, godmode, blockBuilding, new string[] { "kit", "home", "sethome" }, DateTime.UtcNow));
-                                player.MessageFrom(chat_Name, $"Succesfully created zone {name} with a radius of {radius} m, You can edit the options in the config file");
-                                this.SaveConfig();
+                                string id = CreateUniqueID();
+                                Zones.Add(id, new ZoneProps(name, player.Location.ToString(), radius, radiation, radA, nosuicide, godmode, blockBuilding, new string[] { "kit", "home", "sethome" }, DateTime.UtcNow));
+                                player.MessageFrom(chat_Name, $"Succesfully created zone {name} with a radius of {radius} m, You can edit the options in the config file");                            
                             }
                             else
                                 player.MessageFrom(chat_Name, "There is already a zone called " + name);
