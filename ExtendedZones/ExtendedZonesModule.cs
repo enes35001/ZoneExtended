@@ -12,6 +12,8 @@ namespace ExtendedZones
 {
     public class ExtendedZonesModule : Fougerite.Module
     {
+
+        public static ExtendedZonesModule API;
         public override string Name => "ExtendedZones";
         public override string Description => "ExtendedZones plugin with many features and options";
         public override string Author => "ice cold";
@@ -40,6 +42,7 @@ namespace ExtendedZones
 
         public override void Initialize()
         {
+            API = this;
             Zones = new Dictionary<string, ZoneProps>();
             PlayerListener = new Dictionary<Player, Timer>();
             PlayerZone = new Dictionary<Player, ZoneProps>();
@@ -51,8 +54,17 @@ namespace ExtendedZones
             Hooks.OnPlayerConnected += OnPlayerConnected;
             Hooks.OnPlayerDisconnected += OnPlayerDisconnected;
             Hooks.OnServerSaved += OnServerSave;
+            Hooks.OnServerLoaded += OnServerLoaded;
 
 
+        }
+
+        private void OnServerLoaded()
+        {
+            foreach(var zone in Zones.Values)
+            {
+                Debug.Log($"[Zones] Loaded zone {zone.name} | Radius: {zone.radius} | Created: {zone.creation_time}");
+            }
         }
 
         private void OnServerSave(int Amount, double Seconds)
@@ -162,20 +174,18 @@ namespace ExtendedZones
                         try
                         {
                             string name = args[1];
-                            if(!Zones.Any(x => x.Value.name == name))
+                            float radius = float.Parse(args[2]);
+                            bool radiation = bool.Parse(args[3]);
+                            float radA = float.Parse(args[4]);
+                            bool nosuicide = bool.Parse(args[5]);
+                            bool blockBuilding = bool.Parse(args[6]);
+                            bool godmode = bool.Parse(args[7]);
+                            if (this.CreateZone(player.Location, name, radius, radiation, radA, nosuicide, godmode, blockBuilding, new string[] { }))
                             {
-                                float radius = float.Parse(args[2]);
-                                bool radiation = bool.Parse(args[3]);
-                                float radA = float.Parse(args[4]);
-                                bool nosuicide = bool.Parse(args[5]);
-                                bool blockBuilding = bool.Parse(args[6]);
-                                bool godmode = bool.Parse(args[7]);
-                                string id = CreateUniqueID();
-                                Zones.Add(id, new ZoneProps(name, player.Location.ToString(), radius, radiation, radA, nosuicide, godmode, blockBuilding, new string[] { "kit", "home", "sethome" }, DateTime.UtcNow));
-                                player.MessageFrom(chat_Name, $"Succesfully created zone {name} with a radius of {radius} m, You can edit the options in the config file");                            
+                                player.MessageFrom(chat_Name, $"Succesfully created zone {name} with a radius of {radius} m, You can edit the options in the config file");
                             }
                             else
-                                player.MessageFrom(chat_Name, "There is already a zone called " + name);
+                                player.MessageFrom(Name, "There is already a zone called " + name);
 
 
                         }
@@ -191,11 +201,8 @@ namespace ExtendedZones
                 {
                     if(args.Length == 2)
                     {
-                        if (Zones.Any(x => x.Value.name == args[1]))
-                        {
-                            Zones.Remove(Zones.FirstOrDefault(x => x.Value.name == args[1]).Key);
+                        if (this.RemoveZone(args[1]))
                             player.MessageFrom(chat_Name, $"Succesfully removed zone {args[1]}");
-                        }
                         else
                             player.MessageFrom(chat_Name, "There is not a zone called " + args[1]);
                     }
@@ -215,15 +222,72 @@ namespace ExtendedZones
                 }  
             }
         }
+        /* ********************************************
+         * 
+         *             Generic api for Zones
+         * 
+         * ********************************************
+         */
 
-        private void SaveConfig()
+
+
+        /// <summary>
+        /// Save's the config file
+        /// </summary>
+        public void SaveConfig()
         {
          
             JsonHelper.SaveFile(Zones, GetAbsoluteFilePath("db_Zones.json"));
           
         }
-
-        private ZoneProps GetZoneAtLocation(Vector3 location)
+        /// <summary>
+        /// Create's a new zone 
+        /// </summary>
+        /// <param name="location"></param>
+        /// <param name="name"></param>
+        /// <param name="radius"></param>
+        /// <param name="Radiation"></param>
+        /// <param name="RadiationAmount"></param>
+        /// <param name="nosuicide"></param>
+        /// <param name="godmode"></param>
+        /// <param name="blockBuilding"></param>
+        /// <param name="blockedCommands"></param>
+        /// <returns></returns>
+        public Boolean CreateZone(Vector3 location, string name, float radius, bool Radiation, float RadiationAmount, bool nosuicide, bool godmode, bool blockBuilding, string[] blockedCommands)
+        {
+            if(!Zones.Any(x => x.Value.name == name))
+            {
+                string id = this.CreateUniqueID();
+                Zones.Add(id, new ZoneProps(name, location.ToString(), radius, Radiation, RadiationAmount, nosuicide, godmode, blockBuilding, blockedCommands, DateTime.Now));
+                return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// Removes a zone by a specific id or name
+        /// </summary>
+        /// <param name="nameorid"></param>
+        /// <returns></returns>
+        public Boolean RemoveZone(string nameorid)
+        {
+            if(Zones.ContainsKey(nameorid))
+            {
+                Zones.Remove(nameorid);
+                return true;
+            }
+            if (Zones.Any(x => x.Value.name == nameorid))
+            {
+                Zones.Remove(Zones.FirstOrDefault(x => x.Value.name == nameorid).Key);
+                return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// Returns the closest zone at the location
+        /// </summary>
+        /// <param name="location"></param>
+        /// <returns></returns>
+        public ZoneProps GetZoneAtLocation(Vector3 location)
         {
             try
             {
@@ -242,7 +306,11 @@ namespace ExtendedZones
             }
            
         }
-        public void CheckPlayerZone(Player player)
+        /// <summary>
+        /// Checks if the player enters or leaves a zone
+        /// </summary>
+        /// <param name="player"></param>
+        private void CheckPlayerZone(Player player)
         {
             var nearbyzone = GetZoneAtLocation(player.Location);
             string zone_name = nearbyzone.name == string.Empty ? "Unkown" : nearbyzone.name;
